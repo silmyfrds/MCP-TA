@@ -161,6 +161,7 @@ See the [chart values](charts/prometheus-mcp-server/values.yaml) for all availab
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `PROMETHEUS_URL` | URL of your Prometheus server | Yes |
+| `DOCKER_HOST` | Connection string to Docker Daemon (e.g., `ssh://username@vps-ip` or `tcp://vps-ip:2375`). If empty, attempts to use local Docker Desktop/Engine socket. | No |
 | `PROMETHEUS_URL_SSL_VERIFY` | Set to False to disable SSL verification | No |
 | `PROMETHEUS_DISABLE_LINKS` | Set to True to disable Prometheus UI links in query results (saves context tokens) | No |
 | `PROMETHEUS_REQUEST_TIMEOUT` | Request timeout in seconds to prevent hanging requests (DDoS protection) | No (default: 30) |
@@ -187,6 +188,8 @@ See the [chart values](charts/prometheus-mcp-server/values.yaml) for all availab
 | `list_metrics` | Discovery | List all available metrics in Prometheus with pagination and filtering support |
 | `get_metric_metadata` | Discovery | Get metadata for one metric or bulk metadata with optional filtering |
 | `get_targets` | Discovery | Get information about all scrape targets |
+| `docker_ps` | Docker | List Docker containers with essential token-efficient details |
+| `docker_logs` | Docker | Get logs for a specific Docker container with exact timestamps for correlation |
 
 The list of tools is configurable, so you can choose which tools you want to make available to the MCP client. This is useful if you don't use certain functionality or if you don't want to take up too much of the context window.
 
@@ -204,6 +207,35 @@ The list of tools is configurable, so you can choose which tools you want to mak
   - Bearer token auth from environment variables
 - Docker containerization support
 - Provide interactive tools for AI assistants
+
+## Docker Management Capabilities
+
+This server has been extended to manage and monitor Docker containers directly, enabling AI assistants to map Prometheus metric anomalies to exact container log events.
+
+### Dual-Connection Architecture
+
+The program uses two distinct connections to operate:
+
+1. **Prometheus Connection**: HTTP-based polling directed to the `PROMETHEUS_URL` (e.g., `http://192.168.1.100:9090`).
+2. **Docker Connection**: Daemon communication using the official Docker Python SDK, controlled by the `DOCKER_HOST` environment variable.
+
+### Setting up Docker Access
+
+By default, without `DOCKER_HOST` specified, the server connects to your local machine's Docker Engine (e.g., Docker Desktop on Windows/Mac, or `/var/run/docker.sock` on Linux).
+
+To connect to a **Remote VPS** (common when monitoring production servers), you should use an **SSH Tunnel**:
+
+```env
+# In your .env file
+PROMETHEUS_URL=http://<vps-ip>:9090
+DOCKER_HOST=ssh://root@<vps-ip>
+```
+
+*Requirements for SSH tunnel:*
+- You must have SSH keys configured and added to your `ssh-agent`.
+- The MCP server will invisibly run SSH commands in the background to tunnel the Docker socket traffic securely over port 22.
+
+The server includes tools like `docker_ps` (for lightweight resource inspection) and `docker_logs` (which forcefully pushes `timestamps=True` so your AI assistant can precisely align log anomalies with PromQL graph spikes).
 
 ## Development
 

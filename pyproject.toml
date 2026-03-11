@@ -12,6 +12,8 @@ dependencies = [
     "requests",
     "structlog>=23.0.0",
     "fastmcp>=3.1.0",
+    "docker>=7.0.0",
+    "paramiko>=3.0.0",
 ]
 
 [project.optional-dependencies]

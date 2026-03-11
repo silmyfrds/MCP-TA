@@ -13,6 +13,9 @@ import requests
 from fastmcp import FastMCP, Context
 from prometheus_mcp_server.logging_config import get_logger
 
+import docker
+import docker.errors
+
 dotenv.load_dotenv()
 
 # Get tool prefix from environment (empty string for backward compatibility)
@@ -37,6 +40,14 @@ def clear_metrics_cache():
 
 # Get logger instance
 logger = get_logger()
+
+# Global docker client initialization.
+# This automatically picks up DOCKER_HOST for SSH tunneling if set.
+try:
+    docker_client = docker.from_env()
+except Exception as e:
+    # Graceful fallback, will be caught by tool error handlers if daemon is totally unresponsive
+    logger.error("Failed to initialize Docker client from environment", error=str(e))
 
 # Health check tool for Docker containers and monitoring
 @mcp.tool(
@@ -649,6 +660,96 @@ async def get_targets() -> Dict[str, List[Dict[str, Any]]]:
                 dropped_targets=len(data["droppedTargets"]))
     
     return result
+
+@mcp.tool(
+    name=_tool_name("docker_ps"),
+    description="List Docker containers with essential token-efficient details (id, name, image, state, status).",
+    annotations={
+        "title": "List Docker Containers",
+        "icon": "🐳",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True
+    }
+)
+async def docker_ps(all: bool = False) -> str:
+    """List Docker containers.
+    
+    Args:
+        all: If True, show all containers. Only running containers are shown by default.
+        
+    Returns:
+        A lightweight JSON string containing concise container details.
+    """
+    try:
+        # Fetch containers from the Docker daemon, filtered by Compose project
+        filters = {"label": "com.docker.compose.project=e-commerce-app-tugas-akhir"}
+        containers = docker_client.containers.list(all=all, filters=filters)
+        result = []
+        for c in containers:
+            # Safely extract the most concise image tag
+            try:
+                image_name = c.image.tags[0] if c.image and getattr(c.image, 'tags', None) else c.attrs.get('Config', {}).get('Image', 'unknown')
+            except Exception:
+                image_name = c.attrs.get('Config', {}).get('Image', 'unknown')
+
+            # Build lightweight dictionary for token efficiency
+            result.append({
+                "id": c.short_id,
+                "name": c.name,
+                "image": image_name,
+                "state": c.attrs.get('State', {}).get('Status', c.status),
+                "status": c.status
+            })
+            
+        return json.dumps(result, indent=2)
+    except docker.errors.APIError as e:
+        return f"Docker API Error: {str(e)}"
+    except Exception as e:
+        return f"Unexpected error listing containers: {str(e)}"
+
+@mcp.tool(
+    name=_tool_name("docker_logs"),
+    description="Get logs for a specific Docker container. Essential for temporally correlating Docker logs with Prometheus metric anomalies.",
+    annotations={
+        "title": "Get Docker Container Logs",
+        "icon": "📝",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True
+    }
+)
+async def docker_logs(container_name: str, tail: int = 100) -> str:
+    """Fetch logs for a given container.
+    
+    Args:
+        container_name: The name or ID of the Docker container.
+        tail: Number of lines to show from the end of the logs (default: 100).
+        
+    Returns:
+        String output of the container logs prefixed with timestamps.
+    """
+    try:
+        container = docker_client.containers.get(container_name)
+        
+        # Verify container belongs to the target stack
+        labels = container.attrs.get('Config', {}).get('Labels', {})
+        if labels.get('com.docker.compose.project') != 'e-commerce-app-tugas-akhir':
+            return f"Error: Container '{container_name}' does not belong to the 'e-commerce-app-tugas-akhir' stack. Access denied."
+            
+        # CRITICAL: explicitly set timestamps=True to correlate with Prometheus anomalies
+        logs = container.logs(tail=tail, timestamps=True)
+        
+        # Decode output to a UTF-8 string handling errors gracefully
+        return logs.decode('utf-8', errors='replace')
+    except docker.errors.NotFound:
+        return f"Error: Container '{container_name}' not found."
+    except docker.errors.APIError as e:
+        return f"Docker API Error: {str(e)}"
+    except Exception as e:
+        return f"Unexpected error fetching logs for '{container_name}': {str(e)}"
 
 if __name__ == "__main__":
     logger.info("Starting Prometheus MCP Server", mode="direct")
