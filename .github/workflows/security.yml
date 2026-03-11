@@ -36,7 +36,7 @@ jobs:
           format: 'table'
           severity: 'CRITICAL'
           exit-code: '1'
-          scanners: 'vuln'
+          security-checks: 'vuln'
           vuln-type: 'library'
 
       - name: Run Trivy vulnerability scanner (SARIF output)
@@ -50,7 +50,7 @@ jobs:
           severity: 'CRITICAL,HIGH,MEDIUM'
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
@@ -77,7 +77,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Upload filesystem scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'trivy-fs-results.sarif'
