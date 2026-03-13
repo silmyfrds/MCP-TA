@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  prometheus-mcp-server:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: prometheus-mcp-server
+    # Gunakan file .env secara otomatis
+    env_file:
+      - .env
+    environment:
+      # Override transport untuk menggunakan standar HTTP server to server
+      - PROMETHEUS_MCP_SERVER_TRANSPORT=http
+      - PROMETHEUS_MCP_BIND_PORT=8080
+      - PROMETHEUS_MCP_BIND_HOST=0.0.0.0
+    volumes:
+      # PENTING: Mount docker.sock VPS ke dalam container agar bisa mengontrol log/ps
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    # networks:
+    #  - ecommerce-network # Uncomment dan pastikan berada di network yang sama dengan prometheus

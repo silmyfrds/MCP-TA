@@ -49,8 +49,8 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PROMETHEUS_MCP_BIND_HOST=0.0.0.0 \
     PROMETHEUS_MCP_BIND_PORT=8080
 
-USER app
-
+# Removing USER app so the container runs as root to access docker.sock
+# USER app
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

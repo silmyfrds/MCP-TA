@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "prometheus-mcp-server": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "D:\\UGM\\Kuliah\\Tugas Akhir\\MCP Program\\prometheus-mcp-server",
+        "run",
+        "prometheus-mcp-server"
+      ],
+      "env": {
+        "PROMETHEUS_URL": "http://10.33.109.171:9090",
+        "DOCKER_HOST": "ssh://ubuntu-silmy@10.33.109.171"
+      }
+    }
+  }
+}
